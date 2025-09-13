@@ -96,7 +96,7 @@ void setup(void) {
   Wire1.setSCL(27);
 
   setupMagnitometer();
-  setupGNNS();
+  //setupGNNS();
 
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
   FastLED.clear();
@@ -135,8 +135,8 @@ void getGpsData(double &latitude, double &longitude){
 double getHeading() {
   sensors_event_t event;
   lis3mdl.getEvent(&event);
-  float heading_rad = atan2(event.magnetic.y, event.magnetic.x);
-  double heading_deg = heading_rad * 180.0 / PI;
+  float heading_rad = atan2(event.magnetic.y + 2.09, event.magnetic.x + 34.98);
+  double heading_deg = heading_rad * (180.0 / PI);
   if (heading_deg < 0) heading_deg += 360;
   Serial.printf("Heading: %.2f degrees\n", heading_deg);
   return heading_deg;
@@ -156,10 +156,10 @@ void updateLEDs(double latitude, double longitude, double heading) {
 
 void loop() {
   double lat, lon;
-  getGpsData(lat, lon);
+  // getGpsData(lat, lon);
 
   double heading = getHeading();
   updateLEDs(lat, lon, heading);
 
-  delay(500);
+  delay(100);
 }
