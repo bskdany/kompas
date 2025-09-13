@@ -1,7 +1,15 @@
 #include <Wire.h>
 #include <Adafruit_LIS3MDL.h>
 #include <Adafruit_Sensor.h>
+#include "DFRobot_GNSS.h"
+#include <FastLED.h>
 
+#define NUM_LEDS 16
+#define DATA_PIN 15
+
+CRGB leds[NUM_LEDS];
+
+DFRobot_GNSS_I2C gnss(&Wire ,GNSS_DEVICE_ADDR);
 Adafruit_LIS3MDL lis3mdl;
 
 void setupMagnitometer(){
@@ -24,15 +32,49 @@ void setupMagnitometer(){
                           true); // enabled!
 }
 
+void setupGNNS(){
+  while(!gnss.begin()){
+    Serial.println("NO gps !");
+    delay(1000);
+  }
+  
+  gnss.enablePower();      
+  gnss.setGnss(eGPS_BeiDou_GLONASS);
+  gnss.setRgbOn();
+}
+
 void setup(void) {
   Serial.begin(115200);
   while (!Serial) delay(10); // pause until serial monitor open
 
-  // bruh
   Wire1.setSDA(26);
   Wire1.setSCL(27);
 
   setupMagnitometer();
+  setupGNNS();
+
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.clear();
+  FastLED.show();
+}
+
+void getGpsData(){
+  sLonLat_t lat = gnss.getLat();
+  sLonLat_t lon = gnss.getLon();
+
+  uint8_t starUsed = gnss.getNumSatUsed();
+
+
+
+  Serial.print(lat.latitudeDegree,6);
+  Serial.print((char)lon.lonDirection);
+
+  Serial.print(", ");
+  Serial.print(lon.lonitudeDegree,6);
+  Serial.print((char)lat.latDirection); // shit fucking driver
+
+  Serial.print(" - ");
+  Serial.println(starUsed);
 }
 
 void getMagnitometerData(){
@@ -65,5 +107,14 @@ void getMagnitometerData(){
 
 void loop() {
   getMagnitometerData();
-  delay(100);
+  getGpsData();
+
+  // Turn the first LED red
+  leds[0] = CRGB::Purple;
+  FastLED.show();
+  delay(500);
+
+  // Turn the first LED off
+  leds[0] = CRGB::Black;
+  FastLED.show();
 }
