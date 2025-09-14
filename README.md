@@ -1,5 +1,7 @@
 # kompas
 
+![kompass2](https://github.com/user-attachments/assets/4fd40e6e-4648-4a88-b9f8-8a61785a93b0)
+
 Kompas is an portable, handleld hardware device that will point you to your most desired location: LCBO, Lazeez, E7, you name it
 
 ## Software
