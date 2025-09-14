@@ -6,11 +6,11 @@ Kompas is an portable, handleld hardware device that will point you to your most
 
 ## Software
 
-We use the Arduino language to interact with the breakout boards.
-We recieve GPS location from connecting to satellites, constantly updating the precise direction of the target location.
-The magnetometer is calibrated for hard-iron, and later calibrated to align with North, as well as the LEDS of the Kompas.
-Caching and storage to FLASH memory allows for Kompas users to operate in a signal-less situation with their most recent GPS location, even on reboot of the system.
+We use the Arduino language to interact with the breakout boards. We retrieve position and orientation data from a GNSS and Magnetometer breakout boards. The combination of the 2, in addition to some math allows us to point to any coordinate.
 
+The magnetometer is calibrated for hard-iron, and later calibrated to align with North, as well as the LEDS of the Kompas. 
+
+A caching is present to FLASH memory allows for Kompas users to operate in a signal-less situation with their most recent GPS location, even on GNSS lock loss. 
 
 ## Hardware
 
