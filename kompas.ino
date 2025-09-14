@@ -24,8 +24,8 @@ struct GpsFix {
 GpsFix cachedFix;
 
 // Hardcoded target coordinate
-const double targetLat = 43.473497;
-const double targetLon = -80.540407;
+double targetLat = 43.473497;
+double targetLon = -80.540407;
 
 // Calibration offsets - ADJUST THESE VALUES AFTER TESTING
 const double LED_OFFSET_DEGREES = 247.5;        // Adjust this: LED index 0 vs magnetometer 0°
@@ -111,6 +111,15 @@ void setup(void) {
   Serial.printf("Last stored fix: %.6f, %.6f (%u sats)\n",
                 cachedFix.lat, cachedFix.lon, cachedFix.satUsed);
                 
+
+  double savedLat, savedLon;
+  EEPROM.get(sizeof(GpsFix), savedLat);
+  EEPROM.get(sizeof(GpsFix) + sizeof(double), savedLon);
+  if (savedLat != 0.0 || savedLon != 0.0) {
+    targetLat = savedLat;
+    targetLon = savedLon;
+    Serial.printf("Restored target: %.6f, %.6f\n", targetLat, targetLon);
+  }
   Serial.printf("Calibration offsets: LED=%.1f°, Magnetic=%.1f°\n", 
                 LED_OFFSET_DEGREES, MAGNETIC_DECLINATION_DEGREES);
 }
@@ -182,7 +191,39 @@ void updateLEDs(double latitude, double longitude, double heading) {
                 bearingToTarget, relativeAngle, ledIndex);
 }
 
+void checkSerialInput() {
+  if (Serial.available()) {
+    String line = Serial.readStringUntil('\n');
+    line.trim();
+
+    // Expect format: lat,lon (e.g., 43.4735,-80.5401)
+    int commaIndex = line.indexOf(',');
+    if (commaIndex > 0) {
+      String latStr = line.substring(0, commaIndex);
+      String lonStr = line.substring(commaIndex + 1);
+      double newLat = latStr.toDouble();
+      double newLon = lonStr.toDouble();
+
+      // Basic sanity check
+      if (newLat != 0.0 || newLon != 0.0) {
+        targetLat = newLat;
+        targetLon = newLon;
+        Serial.printf("New target set: %.6f, %.6f\n", targetLat, targetLon);
+
+        // (Optional) store to EEPROM
+        EEPROM.put(sizeof(GpsFix), targetLat);               // store after GPS fix
+        EEPROM.put(sizeof(GpsFix) + sizeof(double), targetLon);
+        EEPROM.commit();
+      }
+    } else {
+      Serial.println("Invalid format. Use: lat,lon");
+    }
+  }
+}
+
 void loop() {
+  checkSerialInput();
+
   double lat, lon;
   getGpsData(lat, lon);
 
