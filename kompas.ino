@@ -23,9 +23,13 @@ struct GpsFix {
 // Cached fix in RAM
 GpsFix cachedFix;
 
-// Hardcoded target coordinate (example: Ottawa)
-const double targetLat = 64.754697;
-const double targetLon = -147.38295891773666;
+// Hardcoded target coordinate
+const double targetLat = 43.473497;
+const double targetLon = -80.540407;
+
+// Calibration offsets - ADJUST THESE VALUES AFTER TESTING
+const double LED_OFFSET_DEGREES = 247.5;        // Adjust this: LED index 0 vs magnetometer 0°
+const double MAGNETIC_DECLINATION_DEGREES = -125.0;  // Adjust this: magnetometer 0° vs True North
 
 // Save GPS fix to flash
 void saveGpsFix(double lat, double lon, uint8_t satUsed) {
@@ -106,6 +110,9 @@ void setup(void) {
   cachedFix = loadGpsFix();
   Serial.printf("Last stored fix: %.6f, %.6f (%u sats)\n",
                 cachedFix.lat, cachedFix.lon, cachedFix.satUsed);
+                
+  Serial.printf("Calibration offsets: LED=%.1f°, Magnetic=%.1f°\n", 
+                LED_OFFSET_DEGREES, MAGNETIC_DECLINATION_DEGREES);
 }
 
 // Read GPS + update cached coords
@@ -146,6 +153,12 @@ double getHeading() {
   float heading_rad = atan2(event.magnetic.y + 2.09, event.magnetic.x + 34.98);
   double heading_deg = heading_rad * (180.0 / PI);
   if (heading_deg < 0) heading_deg += 360;
+  
+  // Apply magnetic declination to align with True North
+  heading_deg += MAGNETIC_DECLINATION_DEGREES;
+  if (heading_deg >= 360) heading_deg -= 360;
+  if (heading_deg < 0) heading_deg += 360;
+  
   Serial.printf("Heading: %.2f degrees\n", heading_deg);
   return heading_deg;
 }
@@ -156,10 +169,17 @@ void updateLEDs(double latitude, double longitude, double heading) {
   double relativeAngle = bearingToTarget - heading;
   if (relativeAngle < 0) relativeAngle += 360;
 
+  // Apply LED offset to account for physical LED positioning
+  relativeAngle += LED_OFFSET_DEGREES;
+  if (relativeAngle >= 360) relativeAngle -= 360;
+
   int ledIndex = int((relativeAngle / 360.0) * NUM_LEDS) % NUM_LEDS;
   FastLED.clear();
   leds[ledIndex] = CRGB::Green;
   FastLED.show();
+  
+  Serial.printf("Bearing to target: %.2f°, Relative angle: %.2f°, LED index: %d\n", 
+                bearingToTarget, relativeAngle, ledIndex);
 }
 
 void loop() {
