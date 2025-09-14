@@ -24,8 +24,9 @@ struct GpsFix {
 GpsFix cachedFix;
 
 // Hardcoded target coordinate
-const double targetLat = 43.476653;
-const double targetLon = -80.539472;
+//LCBO
+const double targetLat = 43.463098;
+const double targetLon = -80.519421;
 
 // Calibration offsets - ADJUST THESE VALUES AFTER TESTING
 const double LED_OFFSET_DEGREES = 67.5;        // Adjust this: LED index 0 vs magnetometer 0°
@@ -94,7 +95,8 @@ void setupGNNS(){
 
 void setup(void) {
   Serial.begin(115200);
-  while (!Serial) delay(10);
+  //comment out for battery
+  // while (!Serial) delay(10);
 
   Wire1.setSDA(26);
   Wire1.setSCL(27);
