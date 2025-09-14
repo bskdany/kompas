@@ -2,6 +2,8 @@
 
 Kompas is an portable, handleld hardware device that will point you to your most desired location: LCBO, Lazeez, E7, you name it
 
+![Kompas Device Ready](media/kompas_ready.jpg)
+
 ## Software
 
 We use the Arduino language to interact with the breakout boards.
