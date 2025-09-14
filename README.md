@@ -24,3 +24,5 @@ The project is composed of:
 
 
 All the components got soldered on a prototype board and put inside a custom enclosure
+
+Kompas could not have been made possible without the [United Builders Network](https://unitedbuilders.network/), who graciously offered to sponsor this project!
