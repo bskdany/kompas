@@ -96,7 +96,7 @@ void setup(void) {
   Wire1.setSCL(27);
 
   setupMagnitometer();
-  //setupGNNS();
+  setupGNNS();
 
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
   FastLED.clear();
@@ -116,6 +116,14 @@ void getGpsData(double &latitude, double &longitude){
 
   latitude  = lat.latitudeDegree;
   longitude = lon.lonitudeDegree;
+
+ if(lat.latDirection == 'W'){        // lat field contains longitude direction
+    longitude = -longitude;         // negate longitude for West
+}
+
+if(lon.lonDirection == 'S'){        // lon field contains latitude direction  
+    latitude = -latitude;           // negate latitude for South
+}
 
   if (starUsed > 0) {
     Serial.printf("GPS fix: %.6f%c, %.6f%c - %u sats\n",
@@ -156,9 +164,10 @@ void updateLEDs(double latitude, double longitude, double heading) {
 
 void loop() {
   double lat, lon;
-  // getGpsData(lat, lon);
+  getGpsData(lat, lon);
 
   double heading = getHeading();
+  
   updateLEDs(lat, lon, heading);
 
   delay(100);
