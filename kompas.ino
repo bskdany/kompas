@@ -3,14 +3,66 @@
 #include <Adafruit_Sensor.h>
 #include "DFRobot_GNSS.h"
 #include <FastLED.h>
+#include <EEPROM.h>
 
 #define NUM_LEDS 16
 #define DATA_PIN 15
 
 CRGB leds[NUM_LEDS];
 
-DFRobot_GNSS_I2C gnss(&Wire ,GNSS_DEVICE_ADDR);
+DFRobot_GNSS_I2C gnss(&Wire1 ,GNSS_DEVICE_ADDR);
 Adafruit_LIS3MDL lis3mdl;
+
+// Struct to hold GPS fix
+struct GpsFix {
+  double lat;
+  double lon;
+  uint8_t satUsed;
+};
+
+// Cached fix in RAM
+GpsFix cachedFix;
+
+// Hardcoded target coordinate
+const double targetLat = 43.473497;
+const double targetLon = -80.540407;
+
+// Calibration offsets - ADJUST THESE VALUES AFTER TESTING
+const double LED_OFFSET_DEGREES = 247.5;        // Adjust this: LED index 0 vs magnetometer 0°
+const double MAGNETIC_DECLINATION_DEGREES = -125.0;  // Adjust this: magnetometer 0° vs True North
+
+// Save GPS fix to flash
+void saveGpsFix(double lat, double lon, uint8_t satUsed) {
+  GpsFix fix = {lat, lon, satUsed};
+  EEPROM.put(0, fix);
+  EEPROM.commit();
+  cachedFix = fix;
+  Serial.printf("Cached to flash: %.6f, %.6f (%u sats)\n", lat, lon, satUsed);
+}
+
+// Load GPS fix from flash
+GpsFix loadGpsFix() {
+  GpsFix fix;
+  EEPROM.get(0, fix);
+  return fix;
+}
+
+// Compute bearing from current to target using standard formula
+double computeBearing(double lat1, double lon1, double lat2, double lon2) {
+    double deltaLat = lat2 - lat1; // in degrees
+    double deltaLon = lon2 - lon1; // in degrees
+
+    double x = deltaLon * cos(radians(lat1));
+    double y = deltaLat;
+
+    double bearingRad = atan2(x, y);  // note: atan2(x, y), not atan2(y, x)
+    double bearingDeg = bearingRad * 180.0 / PI;
+
+    if (bearingDeg < 0) bearingDeg += 360;  // normalize to 0-360°
+
+    return bearingDeg;
+}
+  
 
 void setupMagnitometer(){
   if(!lis3mdl.begin_I2C(0x1C, &Wire1)){
@@ -24,12 +76,9 @@ void setupMagnitometer(){
   lis3mdl.setDataRate(LIS3MDL_DATARATE_155_HZ);
   lis3mdl.setRange(LIS3MDL_RANGE_4_GAUSS);
   
-
   lis3mdl.setIntThreshold(500);
-  lis3mdl.configInterrupt(false, false, true, // enable z axis
-                          true, // polarity
-                          false, // don't latch
-                          true); // enabled!
+  lis3mdl.configInterrupt(false, false, true,
+                          true, false, true);
 }
 
 void setupGNNS(){
@@ -45,7 +94,7 @@ void setupGNNS(){
 
 void setup(void) {
   Serial.begin(115200);
-  while (!Serial) delay(10); // pause until serial monitor open
+  while (!Serial) delay(10);
 
   Wire1.setSDA(26);
   Wire1.setSCL(27);
@@ -56,65 +105,90 @@ void setup(void) {
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
   FastLED.clear();
   FastLED.show();
+
+  EEPROM.begin(512);
+  cachedFix = loadGpsFix();
+  Serial.printf("Last stored fix: %.6f, %.6f (%u sats)\n",
+                cachedFix.lat, cachedFix.lon, cachedFix.satUsed);
+                
+  Serial.printf("Calibration offsets: LED=%.1f°, Magnetic=%.1f°\n", 
+                LED_OFFSET_DEGREES, MAGNETIC_DECLINATION_DEGREES);
 }
 
-void getGpsData(){
+// Read GPS + update cached coords
+void getGpsData(double &latitude, double &longitude){
   sLonLat_t lat = gnss.getLat();
   sLonLat_t lon = gnss.getLon();
-
   uint8_t starUsed = gnss.getNumSatUsed();
 
+  latitude  = lat.latitudeDegree;
+  longitude = lon.lonitudeDegree;
 
-
-  Serial.print(lat.latitudeDegree,6);
-  Serial.print((char)lon.lonDirection);
-
-  Serial.print(", ");
-  Serial.print(lon.lonitudeDegree,6);
-  Serial.print((char)lat.latDirection); // shit fucking driver
-
-  Serial.print(" - ");
-  Serial.println(starUsed);
+ if(lat.latDirection == 'W'){        // lat field contains longitude direction
+    longitude = -longitude;         // negate longitude for West
 }
 
-void getMagnitometerData(){
+if(lon.lonDirection == 'S'){        // lon field contains latitude direction  
+    latitude = -latitude;           // negate latitude for South
+}
+
+  if (starUsed > 0) {
+    Serial.printf("GPS fix: %.6f%c, %.6f%c - %u sats\n",
+                  latitude, (char)lon.lonDirection,
+                  longitude, (char)lat.latDirection,
+                  starUsed);
+    saveGpsFix(latitude, longitude, starUsed);
+  } else {
+    Serial.printf("No GPS, using cached fix: %.6f, %.6f (%u sats)\n",
+                  cachedFix.lat, cachedFix.lon, cachedFix.satUsed);
+    latitude = cachedFix.lat;
+    longitude = cachedFix.lon;
+  }
+}
+
+// Get compass heading from magnetometer
+double getHeading() {
   sensors_event_t event;
   lis3mdl.getEvent(&event);
-  float mx = event.magnetic.x;
-  float my = event.magnetic.y;
-  float mz = event.magnetic.z;
+  float heading_rad = atan2(event.magnetic.y + 2.09, event.magnetic.x + 34.98);
+  double heading_deg = heading_rad * (180.0 / PI);
+  if (heading_deg < 0) heading_deg += 360;
+  
+  // Apply magnetic declination to align with True North
+  heading_deg += MAGNETIC_DECLINATION_DEGREES;
+  if (heading_deg >= 360) heading_deg -= 360;
+  if (heading_deg < 0) heading_deg += 360;
+  
+  Serial.printf("Heading: %.2f degrees\n", heading_deg);
+  return heading_deg;
+}
 
-  // Calculate the heading using the X and Y axes
-  float heading_rad = atan2(my, mx);
+// Update LEDs to point to target
+void updateLEDs(double latitude, double longitude, double heading) {
+  double bearingToTarget = computeBearing(latitude, longitude, targetLat, targetLon);
+  double relativeAngle = bearingToTarget - heading;
+  if (relativeAngle < 0) relativeAngle += 360;
 
-  // Convert the heading from radians to degrees
-  float heading_deg = heading_rad * 180 / PI;
+  // Apply LED offset to account for physical LED positioning
+  relativeAngle += LED_OFFSET_DEGREES;
+  if (relativeAngle >= 360) relativeAngle -= 360;
 
-  // Adjust for a 0-360 degree compass
-  if (heading_deg < 0) {
-    heading_deg += 360;
-  }
-
-  // Print the results
-  // Serial.print("X: "); Serial.print(mx);
-  // Serial.print(" \tY: "); Serial.print(my);
-  // Serial.print(" \tZ: "); Serial.print(mz);
-  // Serial.print(" uTesla \tHeading: ");
-  Serial.print(heading_deg);
-  Serial.println(" degrees");
-
+  int ledIndex = int((relativeAngle / 360.0) * NUM_LEDS) % NUM_LEDS;
+  FastLED.clear();
+  leds[ledIndex] = CRGB::Green;
+  FastLED.show();
+  
+  Serial.printf("Bearing to target: %.2f°, Relative angle: %.2f°, LED index: %d\n", 
+                bearingToTarget, relativeAngle, ledIndex);
 }
 
 void loop() {
-  getMagnitometerData();
-  getGpsData();
+  double lat, lon;
+  getGpsData(lat, lon);
 
-  // Turn the first LED red
-  leds[0] = CRGB::Purple;
-  FastLED.show();
-  delay(500);
+  double heading = getHeading();
+  
+  updateLEDs(lat, lon, heading);
 
-  // Turn the first LED off
-  leds[0] = CRGB::Black;
-  FastLED.show();
+  delay(100);
 }
