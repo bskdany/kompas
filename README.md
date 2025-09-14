@@ -1,9 +1,8 @@
 # kompas
 
-![kompass2](media/kompas_ready.jpg)
-
 Kompas is an portable, handleld hardware device that will point you to your most desired location: LCBO, Lazeez, E7, you name it
 
+![kompass2](media/kompas_ready.jpg)
 
 ## Software
 
