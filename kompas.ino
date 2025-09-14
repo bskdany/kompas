@@ -1,4 +1,4 @@
-#include <Wire.h>
+// nclude <Wire.h>
 #include <Adafruit_LIS3MDL.h>
 #include <Adafruit_Sensor.h>
 #include "DFRobot_GNSS.h"
@@ -6,7 +6,7 @@
 #include <EEPROM.h>
 
 #define NUM_LEDS 16
-#define DATA_PIN 15
+#define DATA_PIN 16
 
 CRGB leds[NUM_LEDS];
 
@@ -24,12 +24,12 @@ struct GpsFix {
 GpsFix cachedFix;
 
 // Hardcoded target coordinate
-const double targetLat = 43.473497;
-const double targetLon = -80.540407;
+const double targetLat = 43.476653;
+const double targetLon = -80.539472;
 
 // Calibration offsets - ADJUST THESE VALUES AFTER TESTING
-const double LED_OFFSET_DEGREES = 247.5;        // Adjust this: LED index 0 vs magnetometer 0°
-const double MAGNETIC_DECLINATION_DEGREES = -125.0;  // Adjust this: magnetometer 0° vs True North
+const double LED_OFFSET_DEGREES = 67.5;        // Adjust this: LED index 0 vs magnetometer 0°
+const double MAGNETIC_DECLINATION_DEGREES = -260.0;  //djust this: magnetometer 0° vs True North
 
 // Save GPS fix to flash
 void saveGpsFix(double lat, double lon, uint8_t satUsed) {
@@ -150,7 +150,7 @@ if(lon.lonDirection == 'S'){        // lon field contains latitude direction
 double getHeading() {
   sensors_event_t event;
   lis3mdl.getEvent(&event);
-  float heading_rad = atan2(event.magnetic.y + 2.09, event.magnetic.x + 34.98);
+  float heading_rad = atan2(event.magnetic.y - 8.60, event.magnetic.x + 22.05);
   double heading_deg = heading_rad * (180.0 / PI);
   if (heading_deg < 0) heading_deg += 360;
   
