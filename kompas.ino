@@ -6,7 +6,7 @@
 #include <EEPROM.h>
 
 #define NUM_LEDS 16
-#define DATA_PIN 15
+#define DATA_PIN 16
 
 CRGB leds[NUM_LEDS];
 
@@ -24,12 +24,12 @@ struct GpsFix {
 GpsFix cachedFix;
 
 // Hardcoded target coordinate
-const double targetLat = 43.473497;
-const double targetLon = -80.540407;
+const double targetLat = 43.476598;
+const double targetLon = -80.539697;
 
 // Calibration offsets - ADJUST THESE VALUES AFTER TESTING
-const double LED_OFFSET_DEGREES = 247.5;        // Adjust this: LED index 0 vs magnetometer 0°
-const double MAGNETIC_DECLINATION_DEGREES = -125.0;  // Adjust this: magnetometer 0° vs True North
+const double LED_OFFSET_DEGREES = 247.5;        // Adjust this: LED index 0 vs magnetometer 0° add 22.5 x leds
+const double MAGNETIC_DECLINATION_DEGREES = -9.0;  // Adjust this: magnetometer 0° vs True North - subtract heading
 
 // Save GPS fix to flash
 void saveGpsFix(double lat, double lon, uint8_t satUsed) {
@@ -94,7 +94,7 @@ void setupGNNS(){
 
 void setup(void) {
   Serial.begin(115200);
-  while (!Serial) delay(10);
+  // while (!Serial) delay(10); 
 
   Wire1.setSDA(26);
   Wire1.setSCL(27);
@@ -124,13 +124,13 @@ void getGpsData(double &latitude, double &longitude){
   latitude  = lat.latitudeDegree;
   longitude = lon.lonitudeDegree;
 
- if(lat.latDirection == 'W'){        // lat field contains longitude direction
+  if(lat.latDirection == 'W'){        // lat field contains longitude direction
     longitude = -longitude;         // negate longitude for West
-}
+  }
 
-if(lon.lonDirection == 'S'){        // lon field contains latitude direction  
-    latitude = -latitude;           // negate latitude for South
-}
+  if(lon.lonDirection == 'S'){        // lon field contains latitude direction  
+      latitude = -latitude;           // negate latitude for South
+  }
 
   if (starUsed > 0) {
     Serial.printf("GPS fix: %.6f%c, %.6f%c - %u sats\n",
@@ -150,7 +150,8 @@ if(lon.lonDirection == 'S'){        // lon field contains latitude direction
 double getHeading() {
   sensors_event_t event;
   lis3mdl.getEvent(&event);
-  float heading_rad = atan2(event.magnetic.y + 2.09, event.magnetic.x + 34.98);
+  //TODO: Adjust per calibration
+  float heading_rad = atan2(event.magnetic.y - 8.10, event.magnetic.x + 24.21);
   double heading_deg = heading_rad * (180.0 / PI);
   if (heading_deg < 0) heading_deg += 360;
   
