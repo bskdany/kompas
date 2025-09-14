@@ -24,8 +24,8 @@ struct GpsFix {
 GpsFix cachedFix;
 
 // Hardcoded target coordinate
-const double targetLat = 43.476598;
-const double targetLon = -80.539697;
+const double targetLat = 43.462072;
+const double targetLon = -80.521698;
 
 // Calibration offsets - ADJUST THESE VALUES AFTER TESTING
 const double LED_OFFSET_DEGREES = 247.5;        // Adjust this: LED index 0 vs magnetometer 0° add 22.5 x leds
